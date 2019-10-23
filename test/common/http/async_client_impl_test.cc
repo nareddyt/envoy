@@ -326,6 +326,65 @@ TEST_F(AsyncClientImplTest, Retry) {
   response_decoder_->decodeHeaders(std::move(response_headers2), true);
 }
 
+TEST_F(AsyncClientImplTracingTest, Retry) {
+  Tracing::MockSpan* child_span{new Tracing::MockSpan()};
+  ON_CALL(runtime_.snapshot_, featureEnabled("upstream.use_retry", 100))
+      .WillByDefault(Return(true));
+  Message* message_copy = message_.get();
+
+  message_->body() = std::make_unique<Buffer::OwnedImpl>("test body");
+  Buffer::Instance& data = *message_->body();
+
+  EXPECT_CALL(cm_.conn_pool_, newStream(_, _))
+      .WillOnce(Invoke([&](StreamDecoder& decoder,
+                           ConnectionPool::Callbacks& callbacks) -> ConnectionPool::Cancellable* {
+        callbacks.onPoolReady(stream_encoder_, cm_.conn_pool_.host_, stream_info_);
+        response_decoder_ = &decoder;
+        return nullptr;
+      }));
+
+  EXPECT_CALL(parent_span_, spawnChild_(_, "router fake_cluster egress", _))
+      .WillOnce(Return(child_span));
+
+  EXPECT_CALL(stream_encoder_, encodeHeaders(HeaderMapEqualRef(&message_->headers()), false));
+  EXPECT_CALL(stream_encoder_, encodeData(BufferEqual(&data), true));
+
+  message_->headers().insertEnvoyRetryOn().value(Headers::get().EnvoyRetryOnValues._5xx);
+  AsyncClient::RequestOptions options = AsyncClient::RequestOptions().setParentSpan(parent_span_);
+  client_.send(std::move(message_), callbacks_, options);
+
+  EXPECT_CALL(*child_span,
+              setTag(Eq(Tracing::Tags::get().Component), Eq(Tracing::Tags::get().Proxy)));
+  EXPECT_CALL(*child_span, setTag(Eq(Tracing::Tags::get().HttpProtocol), Eq("HTTP/1.1")));
+  EXPECT_CALL(*child_span, setTag(Eq(Tracing::Tags::get().UpstreamCluster), Eq("fake_cluster")));
+  EXPECT_CALL(*child_span, setTag(Eq(Tracing::Tags::get().HttpStatusCode), Eq("200")));
+  EXPECT_CALL(*child_span, setTag(Eq(Tracing::Tags::get().ResponseFlags), Eq("-")));
+  EXPECT_CALL(*child_span, finishSpan());
+
+  // Expect retry and retry timer create.
+  timer_ = new NiceMock<Event::MockTimer>(&dispatcher_);
+  HeaderMapPtr response_headers(new TestHeaderMapImpl{{":status", "503"}});
+  response_decoder_->decodeHeaders(std::move(response_headers), true);
+
+  // Retry request.
+  EXPECT_CALL(cm_.conn_pool_, newStream(_, _))
+      .WillOnce(Invoke([&](StreamDecoder& decoder,
+                           ConnectionPool::Callbacks& callbacks) -> ConnectionPool::Cancellable* {
+        callbacks.onPoolReady(stream_encoder_, cm_.conn_pool_.host_, stream_info_);
+        response_decoder_ = &decoder;
+        return nullptr;
+      }));
+
+  EXPECT_CALL(stream_encoder_, encodeHeaders(HeaderMapEqualRef(&message_copy->headers()), false));
+  EXPECT_CALL(stream_encoder_, encodeData(BufferEqual(&data), true));
+  timer_->invokeCallback();
+
+  // Normal response.
+  expectSuccess(200);
+  HeaderMapPtr response_headers2(new TestHeaderMapImpl{{":status", "200"}});
+  response_decoder_->decodeHeaders(std::move(response_headers2), true);
+}
+
 TEST_F(AsyncClientImplTest, RetryWithStream) {
   ON_CALL(runtime_.snapshot_, featureEnabled("upstream.use_retry", 100))
       .WillByDefault(Return(true));

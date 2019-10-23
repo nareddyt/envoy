@@ -38,7 +38,7 @@ AsyncClientImpl::AsyncClientImpl(Upstream::ClusterInfoConstSharedPtr cluster,
                                  Router::ShadowWriterPtr&& shadow_writer,
                                  Http::Context& http_context)
     : cluster_(cluster), config_("http.async-client.", local_info, stats_store, cm, runtime, random,
-                                 std::move(shadow_writer), true, false, false, false, {},
+                                 std::move(shadow_writer), true, true, false, false, {},
                                  dispatcher.timeSource(), http_context),
       dispatcher_(dispatcher) {}
 
@@ -82,6 +82,10 @@ AsyncStreamImpl::AsyncStreamImpl(AsyncClientImpl& parent, AsyncClient::StreamCal
       send_xff_(options.send_xff) {
   if (options.buffer_body_for_retry) {
     buffered_body_ = std::make_unique<Buffer::OwnedImpl>();
+  }
+
+  if (options.parent_span_) {
+    active_span_ = *options.parent_span_;
   }
 
   router_.setDecoderFilterCallbacks(*this);
@@ -234,16 +238,7 @@ void AsyncStreamImpl::resetStream() {
 AsyncRequestImpl::AsyncRequestImpl(MessagePtr&& request, AsyncClientImpl& parent,
                                    AsyncClient::Callbacks& callbacks,
                                    const AsyncClient::RequestOptions& options)
-    : AsyncStreamImpl(parent, *this, options), request_(std::move(request)), callbacks_(callbacks) {
-
-  if (nullptr != options.parent_span_) {
-    const std::string child_span_name = options.child_span_name_.empty() ?
-        absl::StrCat("async ", parent.cluster_->name(), " egress") : options.child_span_name_;
-    child_span_ = options.parent_span_->spawnChild(Tracing::EgressConfig::get(), child_span_name, parent.dispatcher().timeSource().systemTime());
-  } else {
-    child_span_ = std::make_unique<Tracing::NullSpan>();
-  }
-}
+    : AsyncStreamImpl(parent, *this, options), request_(std::move(request)), callbacks_(callbacks) {}
 
 void AsyncRequestImpl::initialize() {
   sendHeaders(request_->headers(), !request_->body());
@@ -256,10 +251,6 @@ void AsyncRequestImpl::initialize() {
 }
 
 void AsyncRequestImpl::onComplete() {
-  Tracing::HttpTracerUtility::finalizeUpstreamSpan(*child_span_, &response_->headers(),
-                                                   response_->trailers(), streamInfo(),
-                                                   Tracing::EgressConfig::get());
-
   callbacks_.onSuccess(std::move(response_));
 }
 
@@ -283,17 +274,6 @@ void AsyncRequestImpl::onTrailers(HeaderMapPtr&& trailers) {
 
 void AsyncRequestImpl::onReset() {
   if (!cancelled_) {
-    // Add tags about reset.
-    child_span_->setTag(Tracing::Tags::get().Error, Tracing::Tags::get().True);
-    child_span_->setTag(Tracing::Tags::get().ErrorReason, "Reset");
-  }
-
-  // Finalize the span based on whether we received a response or not
-  Tracing::HttpTracerUtility::finalizeUpstreamSpan(
-      *child_span_, remoteClosed() ? &response_->headers() : nullptr,
-      remoteClosed() ? response_->trailers() : nullptr, streamInfo(), Tracing::EgressConfig::get());
-
-  if (!cancelled_) {
     // In this case we don't have a valid response so we do need to raise a failure.
     callbacks_.onFailure(AsyncClient::FailureReason::Reset);
   }
@@ -301,9 +281,6 @@ void AsyncRequestImpl::onReset() {
 
 void AsyncRequestImpl::cancel() {
   cancelled_ = true;
-
-  // Add tags about the cancellation
-  child_span_->setTag(Tracing::Tags::get().Canceled, Tracing::Tags::get().True);
 
   reset();
 }

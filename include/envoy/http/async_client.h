@@ -168,11 +168,19 @@ public:
       hash_policy = v;
       return *this;
     }
+    StreamOptions& setParentSpan(Tracing::Span& parent_span) {
+      parent_span_ = &parent_span;
+      return *this;
+    }
+    StreamOptions& setChildSpanName(const std::string& child_span_name) {
+      child_span_name_ = child_span_name;
+      return *this;
+    }
 
     // For gmock test
     bool operator==(const StreamOptions& src) const {
       return timeout == src.timeout && buffer_body_for_retry == src.buffer_body_for_retry &&
-             send_xff == src.send_xff;
+             send_xff == src.send_xff && parent_span_ == src.parent_span_ && child_span_name_ == src.child_span_name_;
     }
 
     // The timeout supplies the stream timeout, measured since when the frame with
@@ -190,6 +198,11 @@ public:
 
     // Provides the hash policy for hashing load balancing strategies.
     Protobuf::RepeatedPtrField<envoy::api::v2::route::RouteAction::HashPolicy> hash_policy;
+
+    // The parent span that child spans are created under to trace egress requests/responses.
+    // If not set, requests will not be traced.
+    Tracing::Span* parent_span_{nullptr};
+    std::string child_span_name_{""};
   };
 
   /**
@@ -218,23 +231,18 @@ public:
       return *this;
     }
     RequestOptions& setParentSpan(Tracing::Span& parent_span) {
-      parent_span_ = &parent_span;
+      StreamOptions::setParentSpan(parent_span);
       return *this;
     }
     RequestOptions& setChildSpanName(const std::string& child_span_name) {
-      child_span_name_ = child_span_name;
+      StreamOptions::setChildSpanName(child_span_name);
       return *this;
     }
 
     // For gmock test
     bool operator==(const RequestOptions& src) const {
-      return StreamOptions::operator==(src) && parent_span_ == src.parent_span_ && child_span_name_ == src.child_span_name_;
+      return StreamOptions::operator==(src);
     }
-
-    // The parent span that child spans are created under to trace egress requests/responses.
-    // If not set, requests will not be traced.
-    Tracing::Span* parent_span_{nullptr};
-    std::string child_span_name_{""};
   };
 
   /**

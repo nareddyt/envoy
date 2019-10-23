@@ -379,7 +379,7 @@ private:
   const uint64_t stream_id_;
   Router::ProdFilter router_;
   StreamInfo::StreamInfoImpl stream_info_;
-  Tracing::NullSpan active_span_;
+  Tracing::Span& active_span_{Tracing::NullSpan::instance()};
   const Tracing::Config& tracing_config_;
   std::shared_ptr<RouteImpl> route_;
   bool local_closed_{};
@@ -427,7 +427,6 @@ private:
   AsyncClient::Callbacks& callbacks_;
   std::unique_ptr<MessageImpl> response_;
   bool cancelled_{};
-  Tracing::SpanPtr child_span_;
 
   friend class AsyncClientImpl;
 };
