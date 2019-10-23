@@ -379,7 +379,7 @@ private:
   const uint64_t stream_id_;
   Router::ProdFilter router_;
   StreamInfo::StreamInfoImpl stream_info_;
-  Tracing::Span& active_span_{Tracing::NullSpan::instance()};
+  Tracing::Span& active_span_;
   const Tracing::Config& tracing_config_;
   std::shared_ptr<RouteImpl> route_;
   bool local_closed_{};
