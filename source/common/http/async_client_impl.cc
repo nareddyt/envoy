@@ -76,17 +76,13 @@ AsyncStreamImpl::AsyncStreamImpl(AsyncClientImpl& parent, AsyncClient::StreamCal
                                  const AsyncClient::StreamOptions& options)
     : parent_(parent), stream_callbacks_(callbacks), stream_id_(parent.config_.random_.random()),
       router_(parent.config_), stream_info_(Protocol::Http11, parent.dispatcher().timeSource()),
-      active_span_(Tracing::NullSpan::instance()),
+      active_span_(options.parent_span_),
       tracing_config_(Tracing::EgressConfig::get()),
       route_(std::make_shared<RouteImpl>(parent_.cluster_->name(), options.timeout,
                                          options.hash_policy)),
       send_xff_(options.send_xff) {
   if (options.buffer_body_for_retry) {
     buffered_body_ = std::make_unique<Buffer::OwnedImpl>();
-  }
-
-  if (options.parent_span_) {
-    active_span_ = *options.parent_span_;
   }
 
   router_.setDecoderFilterCallbacks(*this);

@@ -316,7 +316,9 @@ private:
   Upstream::ClusterInfoConstSharedPtr clusterInfo() override { return parent_.cluster_; }
   void clearRouteCache() override {}
   uint64_t streamId() override { return stream_id_; }
-  Tracing::Span& activeSpan() override { return active_span_; }
+  Tracing::Span& activeSpan() override {
+    return active_span_? *active_span_ : Tracing::NullSpan::instance();
+  }
   const Tracing::Config& tracingConfig() override { return tracing_config_; }
   void continueDecoding() override { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
   HeaderMap& addDecodedTrailers() override { NOT_IMPLEMENTED_GCOVR_EXCL_LINE; }
@@ -379,7 +381,7 @@ private:
   const uint64_t stream_id_;
   Router::ProdFilter router_;
   StreamInfo::StreamInfoImpl stream_info_;
-  Tracing::Span& active_span_;
+  Tracing::Span* active_span_;
   const Tracing::Config& tracing_config_;
   std::shared_ptr<RouteImpl> route_;
   bool local_closed_{};
