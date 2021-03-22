@@ -114,9 +114,9 @@ static void bmRouteTableSize(benchmark::State& state, RouteMatch::PathSpecifierC
  * - /shelves/shelf_2/...
  * - etc.
  */
-static void bmRouteTableSizeWithPathPrefixMatch(benchmark::State& state) {
-  bmRouteTableSize(state, RouteMatch::PathSpecifierCase::kPrefix);
-}
+//static void bmRouteTableSizeWithPathPrefixMatch(benchmark::State& state) {
+//  bmRouteTableSize(state, RouteMatch::PathSpecifierCase::kPrefix);
+//}
 
 /**
  * Benchmark a route table with exact path matchers in the form of:
@@ -124,9 +124,9 @@ static void bmRouteTableSizeWithPathPrefixMatch(benchmark::State& state) {
  * - /shelves/shelf_2/route_2
  * - etc.
  */
-static void bmRouteTableSizeWithExactPathMatch(benchmark::State& state) {
-  bmRouteTableSize(state, RouteMatch::PathSpecifierCase::kPath);
-}
+//static void bmRouteTableSizeWithExactPathMatch(benchmark::State& state) {
+//  bmRouteTableSize(state, RouteMatch::PathSpecifierCase::kPath);
+//}
 
 /**
  * Benchmark a route table with regex path matchers in the form of:
@@ -157,10 +157,10 @@ static void bmRouteTableSizeWithUrlTemplateMatch(benchmark::State& state) {
   bmRouteTableSize(state, RouteMatch::PathSpecifierCase::kUrlTemplate);
 }
 
-BENCHMARK(bmRouteTableSizeWithPathPrefixMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 13}});
-BENCHMARK(bmRouteTableSizeWithExactPathMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 13}});
-BENCHMARK(bmRouteTableSizeWithRegexMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 13}});
-BENCHMARK(bmRouteTableSizeWithUrlTemplateMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 13}});
+//BENCHMARK(bmRouteTableSizeWithPathPrefixMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 13}});
+//BENCHMARK(bmRouteTableSizeWithExactPathMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 13}});
+BENCHMARK(bmRouteTableSizeWithRegexMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 8}});
+BENCHMARK(bmRouteTableSizeWithUrlTemplateMatch)->RangeMultiplier(2)->Ranges({{1, 2 << 8}});
 
 } // namespace
 } // namespace Router

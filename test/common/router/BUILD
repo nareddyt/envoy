@@ -464,3 +464,16 @@ envoy_benchmark_test(
     name = "config_impl_benchmark_test",
     benchmark_binary = "config_impl_speed_test",
 )
+
+envoy_cc_test(
+    name = "url_template_route_test",
+    srcs = ["url_template_route_test.cc"],
+    deps = [
+        "//source/common/common:assert_lib",
+        "//source/common/router:config_lib",
+        "//test/mocks/server:instance_mocks",
+        "//test/mocks/stream_info:stream_info_mocks",
+        "//test/test_common:utility_lib",
+        "@envoy_api//envoy/config/route/v3:pkg_cc_proto",
+    ],
+)
