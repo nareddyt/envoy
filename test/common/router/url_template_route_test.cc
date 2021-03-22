@@ -44,14 +44,14 @@ static RouteConfiguration genRouteConfig() {
   v_host->set_name("default");
   v_host->add_domains("*");
 
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 1; ++i) {
     Route* route = v_host->add_routes();
     DirectResponseAction* direct_response = route->mutable_direct_response();
     direct_response->set_status(200);
     RouteMatch* match = route->mutable_match();
 
     match->set_url_template(absl::StrCat("/shelves/{shelf_id}/route_", i));
-
+    // TODO: Uncomment these lines to test re2.
 //    regex->mutable_google_re2();
 //    regex->set_regex(absl::StrCat("^/shelves/[^\\\\/]+/route_", i, "$"));
   }
